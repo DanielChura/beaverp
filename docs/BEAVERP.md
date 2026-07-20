@@ -1,60 +1,46 @@
-# BEAVERP — ERP Multicanal (NestJS + Microservicios)
+# BEAVERP — ERP Multicanal (NestJS)
 
-## Servicios
+## Propósito del Proyecto
+Crear un sistema de Planificación de Recursos Empresariales (ERP) enfocado en la omnicanalidad (e-commerce, tiendas físicas, marketplaces). Permite a las empresas gestionar su catálogo, controlar el inventario y procesar órdenes de múltiples canales desde un único lugar centralizado.
 
-| Servicio | Responsabilidad |
+## Principales Objetivos
+1. **Lanzar un MVP Rápido y Funcional:** Entregar un producto base estable que resuelva el problema principal operativo.
+2. **Escalabilidad y Flexibilidad:** Diseñar un núcleo sólido que soporte alto tráfico, múltiples tiendas (multi-tenant) y nuevas integraciones a futuro.
+3. **Migración Transparente:** Permitir una transición arquitectónica fluida desde el Monolito inicial (para velocidad de desarrollo) hacia Microservicios distribuidos (para escalabilidad extrema) sin reescribir la lógica de negocio.
+
+## Arquitectura Base (Monolito Modular en Capas)
+Inicialmente, Beaverp se construye como un **Monolito en capas** (MVP). 
+- **Capas Lógicas:** Controladores (HTTP), Servicios (Lógica de negocio), y Repositorios (Acceso a datos).
+- **Diseño Modular:** Cada dominio de negocio (Auth, Catalog, etc.) está aislado en su propio módulo de NestJS.
+- **Bajo Acoplamiento:** Para facilitar la migración futura a microservicios, los módulos se comunican entre sí mediante Eventos en memoria (`EventEmitter2`) o llamadas a interfaces estrictas. **Prohibido cruzar consultas a nivel de base de datos (ej. joins directos entre tablas de distintos módulos)**.
+
+## Módulos del MVP
+Para que el MVP esté completo como ERP base, necesita los siguientes módulos:
+
+| Módulo | Responsabilidad |
 |---|---|
-| **auth** | Identidad, JWT, multi-tenant, CRUD de usuarios |
-| **catalog** | Productos, categorías, variantes |
-| **inventory** | Stock, reservas, movimientos |
-| **orders** | Creación y orquestación de pedidos |
-| **marketplace-integration** | Adaptador hacia APIs externas (MercadoLibre, etc.) |
-| **notifications** | Reacciona a eventos (email, webhooks) |
-| **gateway** | API Gateway, único punto de entrada externo |
+| **Auth** | Seguridad, JWT, Aislamiento por cliente (Multi-tenant) y Usuarios |
+| **Customers** | Gestión de clientes (CRM básico) y direcciones |
+| **Catalog** | Productos, categorías, variantes y precios |
+| **Inventory** | Control de stock físico, almacenes y reservas temporales |
+| **Orders** | Ciclo de vida del pedido (creación, pago, envío) |
+| **Marketplace** | Adaptadores para ingestar pedidos de canales externos |
+| **Notifications** | Envío de correos, alertas del sistema y webhooks |
 
-## Atributos de calidad
+## Modelo de Dominio y Base de Datos
+El diseño de base de datos detallado, optimizado para PostgreSQL (incluyendo manejo de variantes, imágenes y movimientos de inventario), se encuentra definido en: **[docs/DOMAIN_MODEL.md](file:///c:/Users/danie/dev/beaverp/docs/DOMAIN_MODEL.md)**
 
-1. **Disponibilidad** — un servicio caído no tumba el resto. Comunicación async con broker + circuit breaker en llamadas síncronas.
-2. **Observabilidad** — sin tracing ni logs correlacionados, los microservicios son ingobernables.
-3. **Flexibilidad** — agregar un canal de venta nuevo (Shopify, etc.) no debe tocar órdenes ni catálogo, solo sumar un integration service.
-
-## Layout del proyecto
-
-```
+## Layout del Proyecto
+```text
 beaverp/
   services/
-    auth/                   → proyecto NestJS independiente
-    catalog/                → proyecto NestJS independiente
-    inventory/
-    orders/
-    marketplace-integration/
-    notifications/
-    gateway/
+    beaverp/                → Aplicación Monolítica NestJS (MVP)
+      src/
+        auth/
+        customers/
+        catalog/
+        inventory/
+        orders/
+        marketplace/
+        notifications/
 ```
-
-Cada servicio es un proyecto NestJS autónomo con su propio `package.json`, `node_modules`, `nest-cli.json`. No se usa el modo monorepo de NestJS.
-
-## Reglas de diseño (microservicios)
-
-1. **Cada servicio con su base de datos** — ningún servicio lee o escribe directamente en la BD de otro. Si necesita datos de otro servicio, los pide por API o recibe un evento.
-2. **DTO de entrada/salida** — los datos que entran y salen por API tienen su propio DTO. No se expone el schema de base de datos directamente.
-3. **Comunicación síncrona (REST)** — para consultas y operaciones que necesitan respuesta inmediata. Con timeouts, sin bloqueos largos.
-4. **Comunicación asíncrona (broker)** — para todo lo que cambia estado y no requiere respuesta inmediata. Usa RabbitMQ.
-5. **Idempotencia** — todo consumidor de eventos debe poder recibir el mismo mensaje dos veces sin efectos duplicados.
-6. **Gateway rutea, no razona** — el gateway solo enruta por ruta. No contiene lógica de negocio ni valida JWT. Cada servicio se autentica internamente.
-
-## Estructura interna por servicio
-
-Cada servicio se organiza por funcionalidad, sin capas forzadas:
-
-```
-src/
-  *.module.ts          → módulos de NestJS
-  *.controller.ts      → endpoints HTTP
-  *.service.ts         → lógica del servicio
-  *.schema.ts          → schema de base de datos (Mongoose)
-  dto/                 → DTOs de entrada/salida
-  commons/             → utilidades compartidas dentro del servicio
-```
-
-No hay separación obligatoria en domain/infra/application. NestJS se usa directo. Si en un punto concreto un patrón (repository, DIP) suma valor real, se evalúa, pero no se aplica por dogma.

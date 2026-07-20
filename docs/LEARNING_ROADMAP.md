@@ -1,70 +1,46 @@
-# BEAVERP — Roadmap de Aprendizaje (Microservicios)
+# BEAVERP — Roadmap y Plan de Implementación
 
-## Conceptos (en orden de aparición)
+Este documento define el plan de implementación inmediato y las fases de desarrollo para construir el MVP (Monolito Modular) y su futura migración a microservicios.
 
-01. **Microservicio / Bounded Context** — qué es, cómo dividir un dominio, servicio ≠ módulo
-02. **DTO y contratos entre servicios** — qué datos viajan, versionado, no exponer el schema
-03. **JWT** — autenticación entre servicios, token firmado, secrets compartidos
-04. **Multi-tenancy** — varios clientes, mismos servicios, datos aislados por tenant
-05. **API Gateway** — punto único de entrada, enrutamiento por ruta, sin lógica de negocio
-06. **Cada servicio su DB** — ownership de datos, nadie escribe en la BD de otro
-07. **Comunicación síncrona (REST)** — un servicio llama a otro por HTTP
-08. **Broker / RabbitMQ** — mensajería asíncrona, colas, exchanges, producers/consumers
-09. **Evento de dominio** — un servicio publica que algo pasó, otros reaccionan o ignoran
-10. **Consistencia eventual** — no todo está actualizado al instante, pero eventualmente sí (CAP)
-11. **Saga coreografiada** — transacciones distribuidas sin coordinador, cada servicio sabe qué hacer
-12. **Idempotencia** — recibir el mismo mensaje dos veces no duplica el efecto
-13. **CQRS** — separar commands (escribir) de queries (leer), aunque sea a nivel de servicio
-14. **Circuit Breaker** — si un servicio falla, dejar de llamarlo un rato y reintentar después
-15. **Contenedores / Docker** — empaquetar, aislar y orquestar servicios para correrlos local
+## Plan de Implementación (MVP - Monolito Modular)
+Guía compacta, ordenada y accionable para comenzar el desarrollo **HOY**. Marca los pasos conforme se avancen:
 
-## Fases
+- [ ] **Paso 1: Setup Inicial Core**
+  - Inicializar la app base en NestJS (`beaverp`).
+  - Configurar las variables de entorno (`.env`) y conexión a Base de Datos (ORM/ODM).
+  - Instalar dependencias globales y configurar `EventEmitter2` (para comunicación entre módulos).
+- [ ] **Paso 2: Seguridad y Multi-tenant (Módulo Auth)**
+  - Implementar login, validación de JWT y Guards.
+  - Definir la estrategia Multi-tenant (asegurar que cada request extraiga y valide el `tenant_id`).
+- [ ] **Paso 3: Dominios Base (Catalog, Customers, Inventory)**
+  - Crear la estructura de capas (Controller -> Service -> Repository) para cada uno.
+  - Implementar CRUD de Clientes (**Customers**).
+  - Implementar CRUD de Productos y Variantes (**Catalog**).
+  - Implementar lógica básica de Entradas/Salidas de Stock (**Inventory**).
+- [ ] **Paso 4: Orquestación del Pedido (Módulo Orders)**
+  - Desarrollar la creación de la Orden.
+  - **Crucial:** Implementar el bajo acoplamiento. Al crear una orden, emitir evento `order.created`.
+  - El módulo **Inventory** debe escuchar `order.created` de forma asíncrona (local) y descontar el stock.
+- [ ] **Paso 5: Canales y Alertas (Marketplace & Notifications)**
+  - Crear el adaptador de **Marketplace** para recibir órdenes simuladas de canales externos.
+  - Crear el módulo de **Notifications** que escuche eventos (ej. `order.paid`) y mande alertas/emails.
 
-| Fase | Servicios que se construyen | Conceptos nuevos |
-|---|---|---|
-| 0 | Auth | 1, 2, 3, 4 |
-| 1 | Catalog + Inventory + Gateway | 5, 6, 7 |
-| 2 | RabbitMQ (infra compartida) | 8, 9, 10 |
-| 3 | Orders | 11, 12 |
-| 4 | Marketplace Integration | 13, 14 |
-| 5 | Notifications + Docker + Observabilidad | 15 |
+---
 
-### Qué se aprende en cada fase
+## FASE 1: Construcción del Monolito MVP (Contexto Arquitectónico)
+- **Objetivo:** Lanzar un sistema funcional de inmediato, cuidando la calidad para poder escalar.
+- **Reglas del Juego:** DTOs estrictos por módulo, sin dependencias cruzadas de base de datos. Si el módulo A necesita algo del módulo B, pide los datos mediante el Service de B o se avisan mediante Eventos.
 
-**Fase 0 — Auth**
-- Un solo microservicio con un módulo interno (auth + users)
-- DTOs de entrada/salida, JWT, multi-tenancy
-- Primer contacto con NestJS + Mongoose como servicio independiente
+## FASE 2: Migración a Microservicios (El Futuro)
+- **Objetivo:** Desacoplar por completo la infraestructura para escalar módulos (ej. escalar solo "Orders" en Black Friday).
+- **Hitos de Migración:**
+  1. Separar el **API Gateway** y el microservicio de **Auth**.
+  2. Implementar **RabbitMQ** para reemplazar a `EventEmitter2`.
+  3. Desplegar bases de datos físicas separadas para cada microservicio.
+  4. Extraer Catalog, Inventory y Orders en procesos (contenedores) separados.
+  5. Manejar fallos con **Sagas Coreografiadas** y Circuit Breakers.
+  6. Implementar **Observabilidad** (Tracing distribuido, logs centralizados).
 
-**Fase 1 — Catalog + Inventory + Gateway**
-- Dos servicios nuevos, cada uno con su propia base de datos
-- El gateway como punto de entrada único
-- Catalog e Inventory se comunican por REST
-- Se aplica ownership de datos: nadie toca la BD del otro
-
-**Fase 2 — RabbitMQ**
-- RabbitMQ como backbone de comunicación asíncrona
-- Catalog publica eventos (ej: "producto creado"), Inventory consume
-- Se experimenta con consistencia eventual
-
-**Fase 3 — Orders**
-- Orquestación de pedidos que cruzan Catalog + Inventory + Auth
-- Saga coreografiada para mantener consistencia sin transacción distribuida
-- Idempotencia en cada consumidor de eventos
-
-**Fase 4 — Marketplace Integration**
-- Adaptador hacia APIs externas (MercadoLibre)
-- CQRS: commands para escribir, queries para leer
-- Circuit breaker para no saturar APIs externas caídas
-
-**Fase 5 — Notifications + Docker + Observabilidad**
-- Notifications reacciona a eventos (email, webhooks)
-- Docker Compose para correr todo localmente
-- Logs correlacionados, health checks, tracing básico
-
-## Notas
-
-- No se usa Clean Architecture ni capas forzadas (domain/infra/application). NestJS se usa directo.
-- No se exige TDD. Los tests vienen después si se necesitan.
-- El foco es entender los patrones de microservicios: comunicación, ownership, resiliencia, contenedores.
-- Cada fase asume que ya corriste y entendiste la anterior. No se saltean.
+## Directivas para Agentes
+- Consultar siempre la lista del **Plan de Implementación** para saber exactamente qué paso construir.
+- Mantener la disciplina del bajo acoplamiento en la Fase 1. No tomar atajos arquitectónicos que rompan los límites de cada módulo.
