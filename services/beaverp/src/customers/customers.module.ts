@@ -4,9 +4,10 @@ import { CustomersService } from './customers.service';
 import { CustomersController } from './customers.controller';
 import { Customer } from './entities/customer.entity';
 import { CustomerAddress } from './entities/customer-address.entity';
+import { JwtModule } from '@nestjs/jwt';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Customer, CustomerAddress])],
+  imports: [TypeOrmModule.forFeature([Customer, CustomerAddress]), JwtModule],
   controllers: [CustomersController],
   providers: [CustomersService],
 })

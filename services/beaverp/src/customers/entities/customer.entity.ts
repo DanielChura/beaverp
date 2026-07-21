@@ -5,10 +5,12 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   OneToMany,
+  Unique,
 } from 'typeorm';
 import { CustomerAddress } from './customer-address.entity';
 
 @Entity()
+@Unique(['email', 'tenantId'])
 export class Customer {
   @PrimaryGeneratedColumn('uuid')
   id: string;

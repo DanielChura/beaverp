@@ -39,8 +39,10 @@ export class UsersService {
 
   async findAll(
     pagination: PaginationDto,
+    tenantId: string,
   ): Promise<ResponseDto<UserResponseDto>> {
     const [users, total] = await this.userRepository.findAndCount({
+      where: { tenantId },
       skip: pagination.skip,
       take: pagination.limit,
     });
@@ -53,19 +55,17 @@ export class UsersService {
     );
   }
 
-  async findOne(id: string): Promise<UserResponseDto> {
-    const user = await this.findUser(id);
+  async findOne(id: string, tenantId: string): Promise<UserResponseDto> {
+    const user = await this.findUser(id, tenantId);
     return new UserResponseDto(user);
   }
 
   async update(
     id: string,
     updateUserDto: UpdateUserDto,
+    tenantId: string,
   ): Promise<UserResponseDto> {
-    const user = await this.userRepository.findOne({ where: { id } });
-    if (!user) {
-      throw new NotFoundException('Usuario no encontrado');
-    }
+    const user = await this.findUser(id, tenantId);
 
     const { password, ...rest } = updateUserDto;
     Object.assign(user, rest);
@@ -78,11 +78,8 @@ export class UsersService {
     return new UserResponseDto(saved);
   }
 
-  async remove(id: string): Promise<UserResponseDto> {
-    const user = await this.userRepository.findOne({ where: { id } });
-    if (!user) {
-      throw new NotFoundException('Usuario no encontrado');
-    }
+  async remove(id: string, tenantId: string): Promise<UserResponseDto> {
+    const user = await this.findUser(id, tenantId);
 
     await this.userRepository.remove(user);
     return new UserResponseDto(user);
@@ -101,9 +98,9 @@ export class UsersService {
     return user;
   }
 
-  private async findUser(id: string): Promise<User> {
+  private async findUser(id: string, tenantId: string): Promise<User> {
     const user = await this.userRepository.findOne({
-      where: { id },
+      where: { id, tenantId },
     });
     if (!user) {
       throw new NotFoundException('Usuario no existente');

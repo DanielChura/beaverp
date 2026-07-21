@@ -30,13 +30,11 @@ export class AuthService {
   }
 
   async register(req: RegisterAuthDto): Promise<LoginResponseDto> {
-    // 1. Create tenant from registration data
     const tenant = await this.tenantsService.create({
       companyName: req.companyName,
       taxId: req.taxId,
     });
 
-    // 2. Create user as admin of that tenant
     const userDto = new CreateUserDto();
     userDto.email = req.email;
     userDto.password = req.password;

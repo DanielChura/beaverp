@@ -10,7 +10,6 @@ export class InventoryService {
     this.logger.log(
       `[INVENTORY] Descontando stock para orden ${payload.orderId} del tenant ${payload.tenantId}`,
     );
-    // FUTURE: Buscar OrderItems por orderId, descontar stock de cada variante
   }
 
   create(createInventoryDto: any) {

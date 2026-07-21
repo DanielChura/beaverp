@@ -17,7 +17,6 @@ export class NotificationsService {
     this.logger.log(
       `[NOTIFICATION] Nueva orden ${payload.orderId} - Total: ${payload.totalAmount} - Canal: ${payload.channel}`,
     );
-    // FUTURE: Enviar email, SMS, notificación push, etc.
   }
 
   @OnEvent('order.paid')
@@ -25,6 +24,5 @@ export class NotificationsService {
     this.logger.log(
       `[NOTIFICATION] Orden ${payload.orderId} pagada - Enviar factura`,
     );
-    // FUTURE: Generar PDF, enviar factura, etc.
   }
 }

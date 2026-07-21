@@ -21,7 +21,6 @@ export class OrdersService {
     });
     const saved = await this.orderRepository.save(order);
 
-    // Emit order.created for Inventory to deduct stock
     this.eventEmitter.emit('order.created', {
       orderId: saved.id,
       tenantId: saved.tenantId,
